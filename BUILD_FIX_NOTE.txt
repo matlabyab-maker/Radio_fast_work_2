@@ -1,0 +1,4 @@
+Build fix based on GitHub Actions log 2026-09-19.
+Fixed missing MainActivity.scheduleLiveText() method.
+Kept Gradle 8.13 / Java 17.
+Added recordLight overlay: red center light visible while recording is active.

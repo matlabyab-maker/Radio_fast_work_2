@@ -1,0 +1,3 @@
+Fast Radio launcher icon
+- Selected design: radio broadcast icon #7
+- Optimized PNG size: under 20 KB
