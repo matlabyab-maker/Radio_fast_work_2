@@ -11,7 +11,7 @@ public class MainActivity extends AppCompatActivity {
   customList=findViewById(R.id.customList);iranList=findViewById(R.id.iranList);persianList=findViewById(R.id.persianList);status=findViewById(R.id.status);nowPlaying=findViewById(R.id.nowPlaying);qualityValue=findViewById(R.id.qualityValue);usagePerMinute=findViewById(R.id.usagePerMinute);qualityRuler=findViewById(R.id.qualityRuler);
   if(recordLight!=null)recordLight.setVisibility(View.GONE); if(recordButton!=null)recordButton.setText("REC"); qualityRuler.setValue(24);qualityRuler.setListener(v->{qualityValue.setText(v+" kbps");status.setText("Target "+v+" kbps");});
   findViewById(R.id.onlineSearch).setOnClickListener(v->onlineSearch()); findViewById(R.id.countrySearch).setOnClickListener(v->showCountryWindow()); findViewById(R.id.tvTickerToggle).setOnClickListener(v->toggleTvTicker()); findViewById(R.id.newsTickerToggle).setOnClickListener(v->toggleNewsTicker()); findViewById(R.id.tvPrev).setOnClickListener(v->{tvIndex=(tvIndex+6)%7;updateTvTicker();}); findViewById(R.id.tvNext).setOnClickListener(v->{tvIndex=(tvIndex+1)%7;updateTvTicker();}); findViewById(R.id.newsPrev).setOnClickListener(v->{newsIndex=(newsIndex+24)%25;updateNewsTicker();}); findViewById(R.id.newsNext).setOnClickListener(v->{newsIndex=(newsIndex+1)%25;updateNewsTicker();}); findViewById(R.id.play).setOnClickListener(v->playSelected());findViewById(R.id.stop).setOnClickListener(v->stop());findViewById(R.id.record).setOnClickListener(v->toggleRecord());findViewById(R.id.fav).setOnClickListener(v->{if(selected!=null)toggleFavorite(selected);});findViewById(R.id.equalizerButton).setOnClickListener(v->showEqualizer());findViewById(R.id.settings).setOnClickListener(v->settings());findViewById(R.id.addRadio).setOnClickListener(v->addRadio());findViewById(R.id.importRadio).setOnClickListener(v->importList());findViewById(R.id.worldButton).setOnClickListener(v->showWorld());
-  updateTvTicker(); updateNewsTicker(); scheduleLiveText(); scheduleSunLight(); setupDragLists(); setupScroll(R.id.customUp,customList,true);setupScroll(R.id.customDown,customList,false);setupScroll(R.id.iranUp,iranList,true);setupScroll(R.id.iranDown,iranList,false);setupScroll(R.id.persianUp,persianList,true);setupScroll(R.id.persianDown,persianList,false);
+  updateTvTicker(); updateNewsTicker(); scheduleLiveText(); scheduleSunLight(); setupDragLists(); setupPlayerAndSlideControls(); setupSafeVolumeControl(); setupScroll(R.id.customUp,customList,true);setupScroll(R.id.customDown,customList,false);setupScroll(R.id.iranUp,iranList,true);setupScroll(R.id.iranDown,iranList,false);setupScroll(R.id.persianUp,persianList,true);setupScroll(R.id.persianDown,persianList,false);
  }
 
 
@@ -178,8 +178,8 @@ public class MainActivity extends AppCompatActivity {
     private void playStationFromView(View v) {
         try {
             Object tag = v.getTag();
-            if (tag instanceof Station) {
-                selected = (Station) tag;
+            if (tag instanceof RadioStation) {
+                selected = (RadioStation) tag;
                 playSelected();
             }
         } catch (Exception ignored) {}
@@ -193,7 +193,7 @@ public class MainActivity extends AppCompatActivity {
 
   final TextView channel=new TextView(this);
   channel.setTextSize(18);
-  channel.setTextStyle(android.graphics.Typeface.BOLD);
+  channel.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
   channel.setGravity(Gravity.CENTER);
   box.addView(channel,new LinearLayout.LayoutParams(-1,50));
 
@@ -254,7 +254,7 @@ public class MainActivity extends AppCompatActivity {
             } else if(now!=null) now.setText("PLAYER • Select a station");
         });
         if(stop!=null) stop.setOnClickListener(v -> {
-            try { player.stop(); } catch(Exception ignored) {}
+            try { if (controller != null) controller.stop(); } catch(Exception ignored) {}
             if(now!=null) now.setText("PLAYER • Stopped");
         });
     }
@@ -274,7 +274,7 @@ public class MainActivity extends AppCompatActivity {
                 int safe = Math.max(0, Math.min(100, p));
                 float playerVolume = safe / 100f;
                 try {
-                    if (player != null) player.setVolume(playerVolume);
+                    if (controller != null) controller.setVolume(playerVolume);
                 } catch (Exception ignored) {}
                 if (value != null) value.setText("VOLUME " + safe + "%");
             }
