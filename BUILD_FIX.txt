@@ -1,0 +1,3 @@
+Fast Radio - GitHub Actions build fix
+Gradle is pinned to 8.13 in .github/workflows/android.yml.
+Java 17 is used. Build task: :app:assembleDebug.

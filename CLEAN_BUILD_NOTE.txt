@@ -1,0 +1,5 @@
+Fast Radio Final 9 - clean build
+This project uses package/namespace com.fast.radio only.
+Stale com.fast.radiofinal5 source files are intentionally not included.
+GitHub Actions uses Gradle 8.13 and Java 17.
+MainActivity.testServer() was fixed for Java lambda final-variable rules.

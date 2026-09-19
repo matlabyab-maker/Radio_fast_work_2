@@ -1,0 +1,14 @@
+[
+  {
+    "name": "BBC Persian — Live",
+    "url": "https://vs-hls-pushb-ww-live.akamaized.net/x=4/i=urn:bbc:pips:service:bbc_persian_tv/mobile_wifi_main_hd_abr_v2.m3u8",
+    "icon": "https://i.imgur.com/4uTMnPb.png",
+    "homepage": "https://www.bbc.com/persian"
+  },
+  {
+    "name": "VOA Persian — Live",
+    "url": "https://voa-ingest.akamaized.net/hls/live/2033876/tvmc07/playlist.m3u8",
+    "icon": "https://gdb.voanews.com/3b0f0000-0aff-0242-5d8c-08db0b2f3f1e_w250_r0_s.jpg",
+    "homepage": "https://ir.voanews.com/"
+  }
+]
