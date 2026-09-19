@@ -1,0 +1,1 @@
+Final 18: visible player controls and a SHOW/HIDE CONTROLS slide-style button were added.

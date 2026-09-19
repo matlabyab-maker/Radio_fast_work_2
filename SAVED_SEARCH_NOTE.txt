@@ -1,0 +1,5 @@
+Fast Radio - Saved Search Results
+
+Online search results can be saved persistently on the device in the app private storage.
+Use SEARCH -> SAVE RESULTS. Use SAVED LIST to reopen them later.
+The saved list can also be deleted from the SAVED LIST window.

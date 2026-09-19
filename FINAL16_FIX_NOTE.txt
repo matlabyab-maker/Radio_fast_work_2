@@ -1,0 +1,1 @@
+Final 16: tap-to-play hardening and centered red recording indicator.

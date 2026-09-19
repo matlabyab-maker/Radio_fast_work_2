@@ -1,0 +1,1 @@
+Final 19: volume is capped at 100% and never sends values above 1.0 to the Media3 player. This prevents over-gain/clipping from stopping playback.

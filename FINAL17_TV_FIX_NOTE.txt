@@ -1,0 +1,1 @@
+TV button now opens a dedicated TV NEWS/SUBTITLE dialog with channel previous/next and ON/OFF controls. Embedded TV panel is hidden initially.

@@ -1,0 +1,5 @@
+Fast Radio Final 13
+- Added visible COUNTRY region/country dialog using RadioBrowser country list.
+- Region buttons: America, Europe, Africa, Asia, National.
+- Selecting a country opens its station list.
+- Recording button changes to red-dot '● REC' and shows centered red indicator while recording is successfully active.

@@ -3,18 +3,136 @@ package com.fast.radio;
 import android.content.*; import android.database.Cursor; import android.net.*; import android.net.TrafficStats; import android.os.*; import android.provider.MediaStore; import android.view.*; import android.widget.*; import android.media.audiofx.Equalizer; import androidx.appcompat.app.AppCompatActivity; import androidx.appcompat.app.AlertDialog; import androidx.media3.common.*; import androidx.media3.session.*; import androidx.media3.session.MediaController; import com.google.common.util.concurrent.ListenableFuture; import org.json.*; import java.io.*; import java.net.*; import java.util.*;
 
 public class MainActivity extends AppCompatActivity {
- ListView customList,iranList,persianList; TextView status,nowPlaying,qualityValue,usagePerMinute; List<RadioStation> custom=new ArrayList<>(),iran=new ArrayList<>(),persian=new ArrayList<>(),world=new ArrayList<>(),favorites=new ArrayList<>(); StationAdapter customAdapter,iranAdapter,persianAdapter,worldAdapter; MediaController controller; ListenableFuture<MediaController> controllerFuture; VerticalRulerView qualityRuler; FrameLayout rootFrame; TextView sunLight,tvUpper,tvLower,newsLower,recordLight; Button tvToggle,newsToggle; boolean tvTickerOn=true,newsTickerOn=true; int tvIndex=0,newsIndex=0; Handler sunHandler=new Handler(Looper.getMainLooper()); Random random=new Random(); RadioStation selected; LegacyMediaPlayerEngine legacyEngine; Equalizer equalizer; Handler usageHandler=new Handler(Looper.getMainLooper()); long usageBase=0,minuteStart=0; int minute=1; boolean recording=false; String recordId="";
+ ListView customList,iranList,persianList; TextView status,nowPlaying,qualityValue,usagePerMinute; List<RadioStation> custom=new ArrayList<>(),iran=new ArrayList<>(),persian=new ArrayList<>(),world=new ArrayList<>(),favorites=new ArrayList<>(); StationAdapter customAdapter,iranAdapter,persianAdapter,worldAdapter; MediaController controller; ListenableFuture<MediaController> controllerFuture; VerticalRulerView qualityRuler; FrameLayout rootFrame; TextView sunLight,tvUpper,tvLower,newsLower,recordLight; Button tvToggle,newsToggle,recordButton; boolean tvTickerOn=true,newsTickerOn=true; int tvIndex=0,newsIndex=0; Handler sunHandler=new Handler(Looper.getMainLooper()); Random random=new Random(); RadioStation selected; LegacyMediaPlayerEngine legacyEngine; Equalizer equalizer; Handler usageHandler=new Handler(Looper.getMainLooper()); long usageBase=0,minuteStart=0; int minute=1; boolean recording=false; String recordId=""; RadioStation draggingStation; List<RadioStation> draggingSource;
  final Runnable usage=new Runnable(){public void run(){updateUsage();usageHandler.postDelayed(this,1000);}};
  @Override protected void onCreate(Bundle b){super.onCreate(b);setContentView(R.layout.activity_main);legacyEngine=new LegacyMediaPlayerEngine(this);bind();loadCustom();loadPersian();setupIran();connectController();}
  void bind(){
-  rootFrame=findViewById(R.id.rootFrame); sunLight=findViewById(R.id.sunLight); recordLight=findViewById(R.id.recordLight); final View tvPanel=findViewById(R.id.tvPanel); findViewById(R.id.tvButton).setOnClickListener(v->{tvPanel.setVisibility(tvPanel.getVisibility()==View.VISIBLE?View.GONE:View.VISIBLE);}); tvUpper=findViewById(R.id.tvUpper); tvLower=findViewById(R.id.tvLower); newsLower=findViewById(R.id.newsLower); tvToggle=findViewById(R.id.tvTickerToggle); newsToggle=findViewById(R.id.newsTickerToggle);
+  rootFrame=findViewById(R.id.rootFrame); sunLight=findViewById(R.id.sunLight); recordLight=findViewById(R.id.recordLight); recordButton=findViewById(R.id.record); final View tvPanel=findViewById(R.id.tvPanel); findViewById(R.id.tvButton).setOnClickListener(v->showTvWindow()); tvUpper=findViewById(R.id.tvUpper); tvLower=findViewById(R.id.tvLower); newsLower=findViewById(R.id.newsLower); tvToggle=findViewById(R.id.tvTickerToggle); newsToggle=findViewById(R.id.newsTickerToggle);
   customList=findViewById(R.id.customList);iranList=findViewById(R.id.iranList);persianList=findViewById(R.id.persianList);status=findViewById(R.id.status);nowPlaying=findViewById(R.id.nowPlaying);qualityValue=findViewById(R.id.qualityValue);usagePerMinute=findViewById(R.id.usagePerMinute);qualityRuler=findViewById(R.id.qualityRuler);
-  if(recordLight!=null)recordLight.setVisibility(View.GONE); qualityRuler.setValue(24);qualityRuler.setListener(v->{qualityValue.setText(v+" kbps");status.setText("Target "+v+" kbps");});
-  findViewById(R.id.onlineSearch).setOnClickListener(v->onlineSearch()); findViewById(R.id.tvTickerToggle).setOnClickListener(v->toggleTvTicker()); findViewById(R.id.newsTickerToggle).setOnClickListener(v->toggleNewsTicker()); findViewById(R.id.tvPrev).setOnClickListener(v->{tvIndex=(tvIndex+6)%7;updateTvTicker();}); findViewById(R.id.tvNext).setOnClickListener(v->{tvIndex=(tvIndex+1)%7;updateTvTicker();}); findViewById(R.id.newsPrev).setOnClickListener(v->{newsIndex=(newsIndex+24)%25;updateNewsTicker();}); findViewById(R.id.newsNext).setOnClickListener(v->{newsIndex=(newsIndex+1)%25;updateNewsTicker();}); findViewById(R.id.play).setOnClickListener(v->playSelected());findViewById(R.id.stop).setOnClickListener(v->stop());findViewById(R.id.record).setOnClickListener(v->toggleRecord());findViewById(R.id.fav).setOnClickListener(v->{if(selected!=null)toggleFavorite(selected);});findViewById(R.id.equalizerButton).setOnClickListener(v->showEqualizer());findViewById(R.id.settings).setOnClickListener(v->settings());findViewById(R.id.addRadio).setOnClickListener(v->addRadio());findViewById(R.id.importRadio).setOnClickListener(v->importList());findViewById(R.id.worldButton).setOnClickListener(v->showWorld());
-  updateTvTicker(); updateNewsTicker(); scheduleLiveText(); scheduleSunLight(); setupScroll(R.id.customUp,customList,true);setupScroll(R.id.customDown,customList,false);setupScroll(R.id.iranUp,iranList,true);setupScroll(R.id.iranDown,iranList,false);setupScroll(R.id.persianUp,persianList,true);setupScroll(R.id.persianDown,persianList,false);
+  if(recordLight!=null)recordLight.setVisibility(View.GONE); if(recordButton!=null)recordButton.setText("REC"); qualityRuler.setValue(24);qualityRuler.setListener(v->{qualityValue.setText(v+" kbps");status.setText("Target "+v+" kbps");});
+  findViewById(R.id.onlineSearch).setOnClickListener(v->onlineSearch()); findViewById(R.id.countrySearch).setOnClickListener(v->showCountryWindow()); findViewById(R.id.tvTickerToggle).setOnClickListener(v->toggleTvTicker()); findViewById(R.id.newsTickerToggle).setOnClickListener(v->toggleNewsTicker()); findViewById(R.id.tvPrev).setOnClickListener(v->{tvIndex=(tvIndex+6)%7;updateTvTicker();}); findViewById(R.id.tvNext).setOnClickListener(v->{tvIndex=(tvIndex+1)%7;updateTvTicker();}); findViewById(R.id.newsPrev).setOnClickListener(v->{newsIndex=(newsIndex+24)%25;updateNewsTicker();}); findViewById(R.id.newsNext).setOnClickListener(v->{newsIndex=(newsIndex+1)%25;updateNewsTicker();}); findViewById(R.id.play).setOnClickListener(v->playSelected());findViewById(R.id.stop).setOnClickListener(v->stop());findViewById(R.id.record).setOnClickListener(v->toggleRecord());findViewById(R.id.fav).setOnClickListener(v->{if(selected!=null)toggleFavorite(selected);});findViewById(R.id.equalizerButton).setOnClickListener(v->showEqualizer());findViewById(R.id.settings).setOnClickListener(v->settings());findViewById(R.id.addRadio).setOnClickListener(v->addRadio());findViewById(R.id.importRadio).setOnClickListener(v->importList());findViewById(R.id.worldButton).setOnClickListener(v->showWorld());
+  updateTvTicker(); updateNewsTicker(); scheduleLiveText(); scheduleSunLight(); setupDragLists(); setupScroll(R.id.customUp,customList,true);setupScroll(R.id.customDown,customList,false);setupScroll(R.id.iranUp,iranList,true);setupScroll(R.id.iranDown,iranList,false);setupScroll(R.id.persianUp,persianList,true);setupScroll(R.id.persianDown,persianList,false);
  }
 
- void onlineSearch(){ final EditText q=new EditText(this); q.setHint("نام رادیو یا کشور"); q.setSingleLine(true); LinearLayout box=new LinearLayout(this); box.setPadding(24,8,24,4); box.setOrientation(LinearLayout.VERTICAL); box.addView(q,new LinearLayout.LayoutParams(-1,-2)); final ListView list=new ListView(this); final List<RadioStation> results=new ArrayList<>(); final StationAdapter[] ad=new StationAdapter[1]; AlertDialog dlg=new AlertDialog.Builder(this).setTitle("ONLINE RADIO SEARCH").setView(box).setNegativeButton("CLOSE",null).create(); Button go=new Button(this); go.setText("SEARCH ONLINE"); box.addView(go,new LinearLayout.LayoutParams(-1,50)); box.addView(list,new LinearLayout.LayoutParams(-1,520)); go.setOnClickListener(v->{String text=q.getText().toString().trim(); if(text.isEmpty())return; status.setText("Searching RadioBrowser..."); RadioBrowserClient.search(text,null,new RadioBrowserClient.StationCallback(){public void result(List<RadioStation>x){runOnUiThread(()->{results.clear();results.addAll(x); ad[0]=new StationAdapter(MainActivity.this,results,new StationAdapter.Listener(){public void select(RadioStation s){selected=s;nowPlaying.setText("▶ "+s.name);status.setText("Online result selected");dlg.dismiss();}public void favorite(RadioStation s){toggleFavorite(s);}});list.setAdapter(ad[0]);status.setText("Online search • "+x.size()+" results");});}public void error(Exception e){runOnUiThread(()->status.setText("Online search unavailable"));}});}); dlg.show(); }
+
+
+ void setupDragLists(){
+  setupDragList(customList,custom,"CUSTOM RADIO");
+  setupDragList(iranList,iran,"IRAN RADIO");
+  setupDragList(persianList,persian,"SPECIAL RADIO");
+ }
+ void setupDragList(final ListView view,final List<RadioStation> data,final String label){
+  view.setOnItemLongClickListener((parent,v,pos,id)->{
+   if(pos<0||pos>=data.size()) return true;
+   draggingStation=data.get(pos); draggingSource=data;
+   ClipData clip=ClipData.newPlainText("FastRadioStation",String.valueOf(pos));
+   View.DragShadowBuilder shadow=new View.DragShadowBuilder(v);
+   if(Build.VERSION.SDK_INT>=24) v.startDragAndDrop(clip,shadow,null,View.DRAG_FLAG_GLOBAL);
+   else v.startDrag(clip,shadow,null,0);
+   status.setText("Drag: "+draggingStation.name+" → another list");
+   return true;
+  });
+  view.setOnDragListener((v,event)->{
+   switch(event.getAction()){
+    case DragEvent.ACTION_DRAG_STARTED: return draggingStation!=null;
+    case DragEvent.ACTION_DRAG_ENTERED: status.setText("Drop into "+label); return true;
+    case DragEvent.ACTION_DRAG_EXITED: return true;
+    case DragEvent.ACTION_DROP:
+     if(draggingStation==null||draggingSource==data) return true;
+     if(!data.contains(draggingStation)){
+      data.add(draggingStation);
+      removeFromAllOtherLists(data,draggingStation);
+      notifyAllStationAdapters();
+      status.setText(draggingStation.name+" → "+label);
+     }
+     draggingStation=null; draggingSource=null;
+     return true;
+    case DragEvent.ACTION_DRAG_ENDED: draggingStation=null; draggingSource=null; return true;
+   }
+   return true;
+  });
+ }
+ void removeFromAllOtherLists(List<RadioStation> target,RadioStation s){
+  if(target!=custom) custom.remove(s);
+  if(target!=iran) iran.remove(s);
+  if(target!=persian) persian.remove(s);
+ }
+ void notifyAllStationAdapters(){
+  if(customAdapter!=null) customAdapter.notifyDataSetChanged();
+  if(iranAdapter!=null) iranAdapter.notifyDataSetChanged();
+  if(persianAdapter!=null) persianAdapter.notifyDataSetChanged();
+ }
+ void showCountryWindow(){
+  final LinearLayout root=new LinearLayout(this);
+  root.setOrientation(LinearLayout.VERTICAL);
+  root.setPadding(12,8,12,8);
+  final LinearLayout regions=new LinearLayout(this);
+  regions.setOrientation(LinearLayout.HORIZONTAL);
+  final ListView countriesList=new ListView(this);
+  final TextView hint=new TextView(this);
+  hint.setText("در حال دریافت فهرست کشورها...");
+  hint.setTextSize(12);
+  hint.setPadding(8,8,8,8);
+  root.addView(regions,new LinearLayout.LayoutParams(-1,52));
+  root.addView(hint,new LinearLayout.LayoutParams(-1,36));
+  root.addView(countriesList,new LinearLayout.LayoutParams(-1,0,1));
+
+  final AlertDialog dlg=new AlertDialog.Builder(this).setTitle("REGION / COUNTRY").setView(root).setNegativeButton("CLOSE",null).create();
+
+  RadioBrowserClient.countries(new RadioBrowserClient.CountryCallback(){
+   public void result(List<RadioBrowserClient.CountryItem> all){
+    runOnUiThread(()->{
+     hint.setText("یک منطقه و سپس کشور را انتخاب کنید");
+     final String[] regionNames={"America","Europe","Africa","Asia","National"};
+     for(String rn:regionNames){
+      Button b=new Button(MainActivity.this); b.setText(rn); b.setTextSize(9); b.setPadding(2,0,2,0);
+      regions.addView(b,new LinearLayout.LayoutParams(0,50,1));
+      b.setOnClickListener(v->{
+       List<RadioBrowserClient.CountryItem> filtered=new ArrayList<>();
+       for(RadioBrowserClient.CountryItem c:all){
+        String rg=RegionCatalog.region(c.code);
+        if(rn.equals("National") || rg.equals(rn)) filtered.add(c);
+       }
+       Collections.sort(filtered,(a,b2)->a.name.compareToIgnoreCase(b2.name));
+       ArrayAdapter<RadioBrowserClient.CountryItem> ca=new ArrayAdapter<RadioBrowserClient.CountryItem>(MainActivity.this,android.R.layout.simple_list_item_1,filtered);
+       countriesList.setAdapter(ca);
+       hint.setText(rn+" • "+filtered.size()+" countries");
+      });
+     }
+     countriesList.setOnItemClickListener((parent,view,pos,id)->{
+      RadioBrowserClient.CountryItem c=(RadioBrowserClient.CountryItem)parent.getItemAtPosition(pos);
+      showCountryStations(c,dlg);
+     });
+     // Default: show all countries alphabetically
+     Button first=(Button)regions.getChildAt(0);
+     if(first!=null) first.performClick();
+    });
+   }
+   public void error(Exception e){runOnUiThread(()->hint.setText("Country list unavailable")); }
+  });
+  dlg.show();
+ }
+ void showCountryStations(RadioBrowserClient.CountryItem c, AlertDialog parent){
+  final ListView list=new ListView(this);
+  final List<RadioStation> data=new ArrayList<>();
+  final StationAdapter ad=new StationAdapter(this,data,new StationAdapter.Listener(){
+   public void select(RadioStation st){selected=st;nowPlaying.setText("▶ "+st.name);status.setText("Selected • "+c.name);parent.dismiss();}
+   public void favorite(RadioStation st){toggleFavorite(st);}
+  });
+  list.setAdapter(ad);
+  AlertDialog stationDlg=new AlertDialog.Builder(this).setTitle(c.name+" • "+c.code).setView(list).setNegativeButton("BACK",null).create();
+  stationDlg.show();
+  status.setText("Loading "+c.name+"...");
+  RadioBrowserClient.byCountry(c.code,new RadioBrowserClient.StationCallback(){
+   public void result(List<RadioStation>x){runOnUiThread(()->{data.clear();data.addAll(x);ad.notifyDataSetChanged();status.setText(c.name+" • "+x.size()+" stations");});}
+   public void error(Exception e){runOnUiThread(()->status.setText(c.name+" • unavailable"));}
+  });
+ }
+ void onlineSearch(){ final EditText q=new EditText(this); q.setHint("نام رادیو یا کشور"); q.setSingleLine(true); LinearLayout box=new LinearLayout(this); box.setPadding(24,8,24,4); box.setOrientation(LinearLayout.VERTICAL); box.addView(q,new LinearLayout.LayoutParams(-1,-2)); final ListView list=new ListView(this); final List<RadioStation> results=new ArrayList<>(); final StationAdapter[] ad=new StationAdapter[1]; AlertDialog dlg=new AlertDialog.Builder(this).setTitle("ONLINE RADIO SEARCH").setView(box).setNegativeButton("CLOSE",null).create(); LinearLayout actions=new LinearLayout(this); actions.setOrientation(LinearLayout.HORIZONTAL); Button go=new Button(this); go.setText("SEARCH ONLINE"); Button save=new Button(this); save.setText("SAVE RESULTS"); Button saved=new Button(this); saved.setText("SAVED LIST"); actions.addView(go,new LinearLayout.LayoutParams(0,50,1)); actions.addView(save,new LinearLayout.LayoutParams(0,50,1)); actions.addView(saved,new LinearLayout.LayoutParams(0,50,1)); box.addView(actions); box.addView(list,new LinearLayout.LayoutParams(-1,520)); go.setOnClickListener(v->{String text=q.getText().toString().trim(); if(text.isEmpty())return; status.setText("Searching RadioBrowser..."); RadioBrowserClient.search(text,null,new RadioBrowserClient.StationCallback(){public void result(List<RadioStation>x){runOnUiThread(()->{results.clear();results.addAll(x); ad[0]=new StationAdapter(MainActivity.this,results,new StationAdapter.Listener(){public void select(RadioStation s){selected=s;nowPlaying.setText("▶ "+s.name);status.setText("Online result selected");dlg.dismiss();}public void favorite(RadioStation s){toggleFavorite(s);}});list.setAdapter(ad[0]);status.setText("Online search • "+x.size()+" results");});}public void error(Exception e){runOnUiThread(()->status.setText("Online search unavailable"));}});}); save.setOnClickListener(v->{if(results.isEmpty()){status.setText("No search results to save");return;}saveSearchResults(results);}); saved.setOnClickListener(v->showSavedSearchResults(dlg)); dlg.show(); }
+ void saveSearchResults(List<RadioStation> data){try{JSONArray a=new JSONArray();for(RadioStation s:data){JSONObject o=new JSONObject();o.put("uuid",s.stationUuid);o.put("name",s.name);o.put("url",s.url);o.put("alternateUrl",s.alternateUrl);o.put("country",s.country);o.put("countryCode",s.countryCode);o.put("codec",s.codec);o.put("bitrate",s.bitrate);o.put("homepage",s.homepage);o.put("favicon",s.favicon);a.put(o);}File f=new File(getFilesDir(),"saved_search_results.json");try(FileOutputStream out=new FileOutputStream(f)){out.write(a.toString().getBytes("UTF-8"));}status.setText("Saved "+data.size()+" results on device");}catch(Exception e){status.setText("Save results failed");}}
+ void showSavedSearchResults(AlertDialog parent){final List<RadioStation> data=loadSavedSearchResults();if(data.isEmpty()){status.setText("No saved search results");return;}final ListView list=new ListView(this);StationAdapter ad=new StationAdapter(this,data,new StationAdapter.Listener(){public void select(RadioStation s){selected=s;nowPlaying.setText("▶ "+s.name);status.setText("Saved result selected");parent.dismiss();}public void favorite(RadioStation s){toggleFavorite(s);}});list.setAdapter(ad);new AlertDialog.Builder(this).setTitle("SAVED SEARCH RESULTS • "+data.size()).setView(list).setPositiveButton("CLOSE",null).setNeutralButton("DELETE",(d,w)->{deleteSavedSearchResults();status.setText("Saved search list deleted");}).show();}
+ List<RadioStation> loadSavedSearchResults(){List<RadioStation> data=new ArrayList<>();File f=new File(getFilesDir(),"saved_search_results.json");if(!f.exists())return data;try{String text=readStream(new FileInputStream(f));JSONArray a=new JSONArray(text);for(int i=0;i<a.length();i++){JSONObject o=a.getJSONObject(i);data.add(new RadioStation(o.optString("uuid"),o.optString("name"),o.optString("url"),o.optString("alternateUrl"),o.optString("country"),o.optString("countryCode"),o.optString("codec"),o.optInt("bitrate"),o.optString("homepage"),o.optString("favicon")));}}catch(Exception ignored){}return data;}
+ void deleteSavedSearchResults(){File f=new File(getFilesDir(),"saved_search_results.json");if(f.exists())f.delete();}
  void toggleTvTicker(){tvTickerOn=!tvTickerOn;tvToggle.setText(tvTickerOn?"ON":"OFF");tvUpper.setVisibility(tvTickerOn?View.VISIBLE:View.GONE);tvLower.setVisibility(tvTickerOn?View.VISIBLE:View.GONE);}
  void toggleNewsTicker(){newsTickerOn=!newsTickerOn;newsToggle.setText(newsTickerOn?"ON":"OFF");newsLower.setVisibility(newsTickerOn?View.VISIBLE:View.GONE);}
  void updateTvTicker(){String[] n={"BBC Persian","VOA Persian"};if(!tvTickerOn)return;tvUpper.setText("TV: "+n[tvIndex]+" • Online");tvLower.setText(tvIndex==0?"BBC Persian • news subtitle / Persian translation when available":"VOA Persian • news subtitle / Persian translation when available");}
@@ -35,8 +153,8 @@ public class MainActivity extends AppCompatActivity {
  void fallback(){if(selected==null)return;try{legacyEngine.play(selected.url);startUsage();status.setText("Compatibility player");}catch(Exception e){status.setText("Stream unavailable");}}
  void stop(){if(controller!=null)controller.stop();legacyEngine.stop();stopUsage();if(recording)stopRecord();status.setText("Stopped");}
  void toggleRecord(){if(selected==null){status.setText("Select a station first");return;}if(TranscoderConfig.base(this).isEmpty()){status.setText("Record needs Fast Radio server in Settings");return;}if(!recording)startRecord();else stopRecord();}
- void startRecord(){new Thread(()->{try{URL u=new URL(TranscoderConfig.base(this)+"record/start?url="+Uri.encode(selected.url)+"&codec=amr-nb&bitrate=12");HttpURLConnection c=(HttpURLConnection)u.openConnection();c.setRequestMethod("POST");c.setRequestProperty("X-API-Key",TranscoderConfig.key(this));c.setConnectTimeout(10000);c.setReadTimeout(15000);int code=c.getResponseCode();if(code<200||code>=300)throw new IOException("HTTP "+code);String s=readStream(c.getInputStream());c.disconnect();JSONObject o=new JSONObject(s);recordId=o.optString("id");runOnUiThread(()->{recording=true;if(recordLight!=null)recordLight.setVisibility(View.VISIBLE);status.setText("● Recording AMR");});}catch(Exception e){runOnUiThread(()->{if(recordLight!=null)recordLight.setVisibility(View.GONE);status.setText("Record start failed");});}}).start();}
- void stopRecord(){if(!recording||recordId.isEmpty())return;String id=recordId;recording=false;if(recordLight!=null)recordLight.setVisibility(View.GONE);recordId="";new Thread(()->{try{URL u=new URL(TranscoderConfig.base(this)+"record/stop?id="+Uri.encode(id));HttpURLConnection c=(HttpURLConnection)u.openConnection();c.setRequestProperty("X-API-Key",TranscoderConfig.key(this));c.setConnectTimeout(10000);c.setReadTimeout(30000);int code=c.getResponseCode();if(code<200||code>=300)throw new IOException("HTTP "+code);byte[] data=readBytes(c.getInputStream());c.disconnect();saveAmr(data);runOnUiThread(()->status.setText("AMR recording saved"));}catch(Exception e){runOnUiThread(()->status.setText("Record stop failed"));}}).start();}
+ void startRecord(){new Thread(()->{try{URL u=new URL(TranscoderConfig.base(this)+"record/start?url="+Uri.encode(selected.url)+"&codec=amr-nb&bitrate=12");HttpURLConnection c=(HttpURLConnection)u.openConnection();c.setRequestMethod("POST");c.setRequestProperty("X-API-Key",TranscoderConfig.key(this));c.setConnectTimeout(10000);c.setReadTimeout(15000);int code=c.getResponseCode();if(code<200||code>=300)throw new IOException("HTTP "+code);String s=readStream(c.getInputStream());c.disconnect();JSONObject o=new JSONObject(s);recordId=o.optString("id");runOnUiThread(()->{recording=true;if(recordLight!=null){recordLight.setVisibility(View.VISIBLE);recordLight.bringToFront();}if(recordButton!=null)recordButton.setText("● REC");status.setText("● Recording AMR");});}catch(Exception e){runOnUiThread(()->{if(recordLight!=null)recordLight.setVisibility(View.GONE);if(recordButton!=null)recordButton.setText("REC");status.setText("Record start failed");});}}).start();}
+ void stopRecord(){if(!recording||recordId.isEmpty())return;String id=recordId;recording=false;if(recordLight!=null)recordLight.setVisibility(View.GONE);if(recordButton!=null)recordButton.setText("REC");recordId="";new Thread(()->{try{URL u=new URL(TranscoderConfig.base(this)+"record/stop?id="+Uri.encode(id));HttpURLConnection c=(HttpURLConnection)u.openConnection();c.setRequestProperty("X-API-Key",TranscoderConfig.key(this));c.setConnectTimeout(10000);c.setReadTimeout(30000);int code=c.getResponseCode();if(code<200||code>=300)throw new IOException("HTTP "+code);byte[] data=readBytes(c.getInputStream());c.disconnect();saveAmr(data);runOnUiThread(()->status.setText("AMR recording saved"));}catch(Exception e){runOnUiThread(()->status.setText("Record stop failed"));}}).start();}
  void saveAmr(byte[] data)throws Exception{ContentValues v=new ContentValues();v.put(MediaStore.Audio.Media.DISPLAY_NAME,"FastRadio_"+System.currentTimeMillis()+".amr");v.put(MediaStore.Audio.Media.MIME_TYPE,"audio/amr");v.put(MediaStore.Audio.Media.RELATIVE_PATH,"Music/Fast Radio");Uri uri=getContentResolver().insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,v);if(uri==null)throw new IOException("MediaStore");OutputStream o=getContentResolver().openOutputStream(uri);o.write(data);o.close();}
  void applyVolume(float v){if(controller!=null)controller.setVolume(Math.max(0f,Math.min(2f,v)));}
  void toggleFavorite(RadioStation s){s.favorite=!s.favorite;if(s.favorite&&!favorites.contains(s))favorites.add(s);if(!s.favorite)favorites.remove(s);customAdapter.notifyDataSetChanged();iranAdapter.notifyDataSetChanged();persianAdapter.notifyDataSetChanged();saveFavorites();}
@@ -56,4 +174,113 @@ public class MainActivity extends AppCompatActivity {
  String readStream(InputStream in)throws Exception{BufferedReader r=new BufferedReader(new InputStreamReader(in,"UTF-8"));StringBuilder b=new StringBuilder();String s;while((s=r.readLine())!=null)b.append(s);return b.toString();}
  byte[] readBytes(InputStream in)throws Exception{ByteArrayOutputStream b=new ByteArrayOutputStream();byte[] buf=new byte[8192];int n;while((n=in.read(buf))!=-1)b.write(buf,0,n);return b.toByteArray();}
  @Override protected void onDestroy(){sunHandler.removeCallbacksAndMessages(null);stopUsage();if(equalizer!=null)try{equalizer.release();}catch(Exception ignored){}legacyEngine.release();if(controllerFuture!=null)MediaController.releaseFuture(controllerFuture);super.onDestroy();}
+
+    private void playStationFromView(View v) {
+        try {
+            Object tag = v.getTag();
+            if (tag instanceof Station) {
+                selected = (Station) tag;
+                playSelected();
+            }
+        } catch (Exception ignored) {}
+    }
+
+
+ void showTvWindow(){
+  final LinearLayout box=new LinearLayout(this);
+  box.setOrientation(LinearLayout.VERTICAL);
+  box.setPadding(12,6,12,6);
+
+  final TextView channel=new TextView(this);
+  channel.setTextSize(18);
+  channel.setTextStyle(android.graphics.Typeface.BOLD);
+  channel.setGravity(Gravity.CENTER);
+  box.addView(channel,new LinearLayout.LayoutParams(-1,50));
+
+  final TextView subtitle=new TextView(this);
+  subtitle.setTextSize(14);
+  subtitle.setGravity(Gravity.CENTER_VERTICAL);
+  subtitle.setPadding(8,4,8,4);
+  box.addView(subtitle,new LinearLayout.LayoutParams(-1,90));
+
+  final LinearLayout controls=new LinearLayout(this);
+  controls.setGravity(Gravity.CENTER);
+  Button prev=new Button(this); prev.setText("‹");
+  Button on=new Button(this); on.setText(tvTickerOn?"ON":"OFF");
+  Button next=new Button(this); next.setText("›");
+  controls.addView(prev,new LinearLayout.LayoutParams(70,55));
+  controls.addView(on,new LinearLayout.LayoutParams(90,55));
+  controls.addView(next,new LinearLayout.LayoutParams(70,55));
+  box.addView(controls);
+
+  final String[] channels={"BBC Persian","VOA Persian","Radio Farda","DW Persian","France 24","RFI Persian","Euronews Persian"};
+  final int[] idx={Math.max(0,Math.min(tvIndex,channels.length-1))};
+
+  Runnable refresh=new Runnable(){public void run(){
+   channel.setText("TV NEWS • "+channels[idx[0]]);
+   subtitle.setText(tvTickerOn
+     ? "زیرنویس/خبر زنده: "+channels[idx[0]]+"\nدر صورت در دسترس بودن منبع آنلاین نمایش داده می‌شود."
+     : "TV OFF • درخواست جدیدی ارسال نمی‌شود");
+   on.setText(tvTickerOn?"ON":"OFF");
+  }};
+  prev.setOnClickListener(v->{idx[0]=(idx[0]+channels.length-1)%channels.length;tvIndex=idx[0];updateTvTicker();refresh.run();});
+  next.setOnClickListener(v->{idx[0]=(idx[0]+1)%channels.length;tvIndex=idx[0];updateTvTicker();refresh.run();});
+  on.setOnClickListener(v->{toggleTvTicker();refresh.run();});
+
+  AlertDialog dlg=new AlertDialog.Builder(this)
+    .setTitle("TV • NEWS SUBTITLE")
+    .setView(box)
+    .setPositiveButton("CLOSE",null)
+    .create();
+  dlg.setOnShowListener(v->refresh.run());
+  dlg.show();
+ }
+
+    private void setupPlayerAndSlideControls() {
+        View slide=findViewById(R.id.slideControls);
+        View extras=findViewById(R.id.extraControls);
+        if(slide!=null && extras!=null){
+            slide.setOnClickListener(v -> {
+                extras.setVisibility(extras.getVisibility()==View.VISIBLE?View.GONE:View.VISIBLE);
+            });
+        }
+        TextView now=findViewById(R.id.playerNow);
+        Button play=findViewById(R.id.playerPlay);
+        Button stop=findViewById(R.id.playerStop);
+        if(play!=null) play.setOnClickListener(v -> {
+            if(selected!=null) {
+                try { playSelected(); } catch(Exception e) { status.setText("Playback error"); }
+                if(now!=null) now.setText("PLAYER • "+selected.name);
+            } else if(now!=null) now.setText("PLAYER • Select a station");
+        });
+        if(stop!=null) stop.setOnClickListener(v -> {
+            try { player.stop(); } catch(Exception ignored) {}
+            if(now!=null) now.setText("PLAYER • Stopped");
+        });
+    }
+
+    private void setupSafeVolumeControl() {
+        SeekBar bar = findViewById(R.id.volumeSafe);
+        TextView value = findViewById(R.id.volumeValue);
+        if (bar == null) return;
+
+        // Never send a player volume value above 1.0 to ExoPlayer.
+        // Values above the phone's hardware maximum are not used; this prevents
+        // invalid gain/clipping from stopping playback.
+        bar.setMax(100);
+        bar.setProgress(100);
+        bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            public void onProgressChanged(SeekBar b, int p, boolean fromUser) {
+                int safe = Math.max(0, Math.min(100, p));
+                float playerVolume = safe / 100f;
+                try {
+                    if (player != null) player.setVolume(playerVolume);
+                } catch (Exception ignored) {}
+                if (value != null) value.setText("VOLUME " + safe + "%");
+            }
+            public void onStartTrackingTouch(SeekBar b) {}
+            public void onStopTrackingTouch(SeekBar b) {}
+        });
+    }
+
 }
